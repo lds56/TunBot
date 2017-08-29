@@ -1,0 +1,30 @@
+{
+	"tips": [
+	    "lalala",
+	    "wawawa"
+	],
+	"treehole": {
+	    "firstreply": [
+		    "hahaha",
+		    "bababa"
+		],
+	    "laterreply": [
+		    "nanana"
+		],
+		"donereply": " (Type 'done' to end this session)"
+	},
+	"countdown": {
+		"adddescreply": "Please send me the description of event", 
+		"adddatereply":	"Please send me the date of event (YYYYMMDD, e.g. 20170828)",
+		"adddonereply": "Well done! Type /countlist to see the information of all the events",
+		"listreply": "OK, as you wish"
+	},
+    "iamfeeling": {
+	"options": {
+	    "lucky": 892959631,
+	    "happy": 769180416,
+	    "blue": 883519011,
+	    "green": 22499013
+	}
+    }
+}
