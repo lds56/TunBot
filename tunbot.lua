@@ -3,14 +3,20 @@ local cjson = require 'cjson'
 local http = require 'socket.http'
 local multipart = require 'multipart'
 
-local open = io.open
-
+---- util funcs
 local function read_file(path)
-   local file = open(path, "rb") -- r read mode and b binary mode
+   local file = io.open(path, "rb") -- r read mode and b binary mode
    if not file then return nil end
    local content = file:read "*a" -- *a or *all reads the whole file
    file:close()
    return content
+end
+
+local function write_file(path, data)
+   local file = io.open(path, "w")
+   if not file then return nil end
+   file:write(data)
+   file:close()
 end
 
 local function randommusic(playlist_id)
@@ -23,23 +29,34 @@ local function randommusic(playlist_id)
    return cjson.decode(track_info).data[1].url, track_rnd_id
 end
 
-local mem = cjson.decode(read_file("memory.json"))
-local state = "NO_STATE"
-
-local countdowntable = {}
-
-local randomreply = function(replytable)
+local function randomreply(replytable)
    if type(replytable) == 'table' then
-	  return replytable[math.random(#replytable)]
+      return replytable[math.random(#replytable)]
    else
-	  return "ERROR 404 >_<"
+      return "ERROR 404 >_<"
    end
 end
 
+local countdowntable = {}
+local function getcdtable(id)
+   local id_str = tostring(id)
+   countdowntable[id_str] = countdowntable[id_str] or {}
+   assert(type(countdowntable) == 'table', 'Countdown table should be a table')
+   return countdowntable[id_str]
+end
+
+---- global variables
+local mem = cjson.decode(read_file("memory.json"))
+local state = "NO_STATE"
+
+local countdownfile = io.open('countdown.json', 'w')
+assert(countdownfile, "Countdown file not exist")
+
 math.randomseed( os.time() )
 
-local api = require('telegram-bot-lua.core').configure('428105087:AAFToIwKvqxEEnrGR8rGjev9y2fxFLBbg1o')
+local api = require('telegram-bot-lua.core').configure(mem.token)
 
+---- api part
 function api.on_message(message)
    if message.text then
 	  print('message: ' .. message.text)
@@ -109,20 +126,24 @@ function api.on_message(message)
 		local countlist = {}
 		local countshow = function (cd)
 		   local datenum = tonumber(cd.date)
-		   local date = os.time{year=math.floor(datenum / 10000), month=math.floor(datenum/100) % 100, day=datenum % 100}
-		   local datedelta = math.ceil(os.difftime(date, os.time()) / (24 * 60 * 60))
+		   assert(datenum, 'Invalid date')
+		   
+		   local date = os.time{year=math.floor(datenum / 10000), month=math.floor(datenum/100) % 100, day=datenum % 100, hour=0}
+		   local datedelta = math.floor(os.difftime(date, os.time()) / (24 * 60 * 60))
 		   if datedelta >= 0 then
 			  return 'Event: ' .. cd.desc .. ', Date: ' .. cd.date .. ', Countdown: ' .. datedelta .. ' days left'
 		   else
 			  return 'Event: ' .. cd.desc .. ', Date: ' .. cd.date .. ', Countdown: ' .. -datedelta .. ' days passed'
 		   end
 		end
-		for i,v in ipairs(countdowntable) do
-		   table.insert(countlist, countshow(v))
+
+		for i,v in ipairs(getcdtable(message.chat.id)) do
+		      table.insert(countlist, countshow(v))
 		end
+
 		api.send_message(
 		   message.chat.id,
-		   table.concat(countlist, '\n')
+		   #countlist > 0 and table.concat(countlist, '\n') or "IT'S VOID :("
 		)
 	 elseif message.text:match('/dailyneko') then
 	    state = 'NO_STATE'
@@ -141,16 +162,33 @@ function api.on_message(message)
 			  randomreply(mem.treehole.laterreply) .. mem.treehole.donereply
 		   )
 		elseif state == 'COUNT_DOWN_DESC' then
-		   table.insert(countdowntable, {desc = message.text, date = {}})
 		   state = 'COUNT_DOWN_DATE'
+		   
+		   table.insert(getcdtable(message.chat.id), {desc = message.text, date = {}})
+
 		   api.send_message(
 			  message.chat.id,
 			  mem.countdown.adddatereply
 		   )
+		   
 		elseif state == 'COUNT_DOWN_DATE' then
+		   if not tonumber(message.text) then
+		      return api.send_message(
+			 message.chat.id,
+			 'Please input date in correct format.'
+		      )
+		   end
+		      
 		   state = 'NO_STATE'
-		   countdowntable[#countdowntable].date = message.text
-		   print('desc :' .. countdowntable[#countdowntable].desc)
+		   
+		   local thetable = getcdtable(message.chat.id)
+		   thetable[#thetable].date = message.text
+
+		   if not pcall(function() countdownfile:write(cjson.encode(countdowntable)) end) then
+		      assert(false, "Countdown table cannot be jsonified")
+		   end
+		   
+		   print('desc :' .. thetable[#thetable].desc)
 		   api.send_message(
 			  message.chat.id,
 			  mem.countdown.adddonereply
