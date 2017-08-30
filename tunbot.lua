@@ -6,7 +6,7 @@ local multipart = require 'multipart'
 ---- util funcs
 local function read_file(path)
    local file = io.open(path, "rb") -- r read mode and b binary mode
-   if not file then return nil end
+   if not file or file == '' then return nil end
    local content = file:read "*a" -- *a or *all reads the whole file
    file:close()
    return content
@@ -37,7 +37,7 @@ local function randomreply(replytable)
    end
 end
 
-local countdowntable = {}
+local countdowntable = cjson.decode(read_file("countdown.json") or '{}')
 local function getcdtable(id)
    local id_str = tostring(id)
    countdowntable[id_str] = countdowntable[id_str] or {}
@@ -46,7 +46,9 @@ local function getcdtable(id)
 end
 
 ---- global variables
-local mem = cjson.decode(read_file("memory.json"))
+local mem_content = read_file("memory.json")
+assert(mem_content, "No memory.json found")
+local mem = cjson.decode(mem_content)
 local state = "NO_STATE"
 
 local countdownfile = io.open('countdown.json', 'w')
@@ -129,11 +131,11 @@ function api.on_message(message)
 		   assert(datenum, 'Invalid date')
 		   
 		   local date = os.time{year=math.floor(datenum / 10000), month=math.floor(datenum/100) % 100, day=datenum % 100, hour=0}
-		   local datedelta = math.floor(os.difftime(date, os.time()) / (24 * 60 * 60))
+		   local datedelta = os.difftime(date, os.time()) / (24 * 60 * 60)
 		   if datedelta >= 0 then
-			  return 'Event: ' .. cd.desc .. ', Date: ' .. cd.date .. ', Countdown: ' .. datedelta .. ' days left'
+		      return 'Event: ' .. cd.desc .. ', Date: ' .. cd.date .. ', Countdown: ' .. math.ceil(datedelta) .. ' days left'
 		   else
-			  return 'Event: ' .. cd.desc .. ', Date: ' .. cd.date .. ', Countdown: ' .. -datedelta .. ' days passed'
+		      return 'Event: ' .. cd.desc .. ', Date: ' .. cd.date .. ', Countdown: ' .. math.ceil(-datedelta) .. ' days passed'
 		   end
 		end
 
