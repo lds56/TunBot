@@ -2,6 +2,7 @@ local utf8 = require 'lua-utf8'
 local cjson = require 'cjson'
 local http = require 'socket.http'
 local multipart = require 'multipart'
+local feedparser = require 'feedparser'
 
 ---- util funcs
 local function read_file(path)
@@ -50,9 +51,10 @@ local mem_content = read_file("memory.json")
 assert(mem_content, "No memory.json found")
 local mem = cjson.decode(mem_content)
 local state = "NO_STATE"
+local miao_url = 'http://staymiao.lofter.com/'
 
-local countdownfile = io.open('countdown.json', 'w')
-assert(countdownfile, "Countdown file not exist")
+local countdownfile = nil
+-- assert(countdownfile, "Countdown file not exist")
 
 math.randomseed( os.time() )
 
@@ -115,14 +117,16 @@ function api.on_message(message)
 				 'Green',
 				 'feeling:green'
 			  )
-     	   )
+		    )
 		)
+		
 	 elseif message.text:match('/countdown') then
 		state = "COUNT_DOWN_DESC"
 		api.send_message(
 		   message.chat.id,
 		   mem.countdown.adddescreply
 		)
+		
 	 elseif message.text:match('/countlist') then
 		state = 'NO_STATE'
 		local countlist = {}
@@ -149,14 +153,25 @@ function api.on_message(message)
 		)
 	 elseif message.text:match('/dailyneko') then
 	    state = 'NO_STATE'
-	    local cat_html = http.request('http://thecatapi.com/api/images/get?format=html')
-	    local cat_url = string.match(cat_html, 'src="(.+)"')
-	    
-	    api.send_photo(
+
+	    api.send_message(
 	       message.chat.id,
-	       cat_url,
-	       'Neko Chan~'
+	       'Please choose the neko channel :3',
+	       nil,
+	       true,
+	       false,
+	       nil,
+	       api.inline_keyboard():row(
+		  api.row():callback_data_button(
+		     'I\'m Feeling Lucky',
+		     'neko:lucky'
+		  ):callback_data_button(
+		     'Staymiao',
+		     'neko:miao'
+		  )
+		)
 	    )
+	    
 	 else
 		if state == "TREE_HOLE" then
 		   api.send_message(
@@ -186,9 +201,14 @@ function api.on_message(message)
 		   local thetable = getcdtable(message.chat.id)
 		   thetable[#thetable].date = message.text
 
-		   if not pcall(function() countdownfile:write(cjson.encode(countdowntable)) end) then
+		   if not pcall(function()
+			 countdownfile = countdownfile or io.open('countdown.json', 'w')
+			 countdownfile:write(cjson.encode(countdowntable))
+		   end) then
 		      assert(false, "Countdown table cannot be jsonified")
 		   end
+
+		   countdown:flush()
 		   
 		   print('desc :' .. thetable[#thetable].desc)
 		   api.send_message(
@@ -231,8 +251,87 @@ function api.on_callback_query(callback_query)
 	 --    "lds",
 	 --    "Lalala"
 	 --)
+   elseif callback_query.data:match('^neko%:') then
+      local neko = callback_query.data:match('^neko%:(.-)$')
+
+      if neko == 'lucky' then
+	 local cat_html = http.request('http://thecatapi.com/api/images/get?format=html')
+	 local cat_url = string.match(cat_html, 'src="(.+)"')
+ 
+	 api.send_photo(
+	    message.chat.id,
+	    cat_url,
+	    'Neko Chan~'
+	 )
+	 
+	 api.send_message(
+	    message.chat.id,
+	    message.message_id,
+	    'Want more?',
+	    nil,
+	    true,
+	    false,
+	    api.inline_keyboard():row(
+	       api.row():callback_data_button(
+		  'Just one more neko',
+		  'neko:lucky'
+		):callback_data_button(
+		  'Nope',
+		  'neko:done'
+		)
+	    )
+	 )
+	 
+      elseif neko:find('^miao') then
+
+	 local index = string.match(neko, 'miao(%d+)') or 1
+	 local rss = feedparser.parse(read_file('staymiao.xml'), miao_url)
+	 index = math.min(#rss.entries, index)
+
+	 print('miao index: ' .. index)
+	 
+	 local link = rss.entries[index].link
+	 local title = rss.entries[index].title
+	 title = string.sub(title, 1, (string.find(title, '\n') or string.len(title)+1) - 1)
+	 local img = string.match(rss.entries[index].summary, 'img src="(.-)"')
+
+	 local res = api.send_photo(
+	    message.chat.id,
+	    img,
+	    title .. '\n' .. link
+	 )
+	 
+	 api.edit_message_text(
+	    message.chat.id,
+	    message.message_id,
+	    res and 'Want more?' or 'Oops, something wrong >_<',
+	    nil,
+	    true,
+	    api.inline_keyboard():row(
+	       api.row():callback_data_button(
+		  'Just one more neko',
+		  'neko:miao' .. (index+1)
+		):callback_data_button(
+		  'Nope',
+		  'neko:done'
+		)
+	    )
+	 )
+
+      elseif neko == 'done' then
+
+	 api.edit_message_text(
+	    message.chat.id,
+	    message.message_id,
+	    "Enjoy~"
+	 )
+	 
+	 print('neko done')
+      end
    end
 end
 
 print("Running...")
 api.run()
+
+countdownfile:close()

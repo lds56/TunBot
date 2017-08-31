@@ -1,5 +1,8 @@
 # Customize
+staymiao.xml
+test.json
 countdown.json
+miao.lua
 
 # Compiled Lua sources
 luac.out
