@@ -223,6 +223,7 @@ end
 function api.on_callback_query(callback_query)
    local message = callback_query.message
    print(callback_query.data)
+   
    if callback_query.data:match('^feeling%:') then
       local feeling = callback_query.data:match('^feeling%:(.-)$')
       local playlist = mem.iamfeeling.options[feeling]
@@ -254,35 +255,44 @@ function api.on_callback_query(callback_query)
    elseif callback_query.data:match('^neko%:') then
       local neko = callback_query.data:match('^neko%:(.-)$')
 
+      local generatemarkup = function(msg, callback_type)
+	 return api.inline_keyboard():row(
+	    api.row():callback_data_button(
+	       msg,
+	       'neko:' .. callback_type
+	    ):callback_data_button(
+	       'Nope',
+	       'neko:done'
+	    )
+	 )
+      end
+      
       if neko == 'lucky' then
+
+	 print('lucky lucky: ' .. message.message_id)
+	 
 	 local cat_html = http.request('http://thecatapi.com/api/images/get?format=html')
 	 local cat_url = string.match(cat_html, 'src="(.+)"')
- 
-	 api.send_photo(
+
+	 local res = api.send_photo(
 	    message.chat.id,
 	    cat_url,
-	    'Neko Chan~'
+	    'Neko Chan~',
+	    false,
+	    nil,
+	    generatemarkup('Just one more neko', 'lucky')
 	 )
-	 
-	 api.send_message(
+
+	 return api.edit_message_reply_markup(
 	    message.chat.id,
 	    message.message_id,
-	    'Want more?',
 	    nil,
-	    true,
-	    false,
-	    api.inline_keyboard():row(
-	       api.row():callback_data_button(
-		  'Just one more neko',
-		  'neko:lucky'
-		):callback_data_button(
-		  'Nope',
-		  'neko:done'
-		)
-	    )
+	    not res and generatemarkup('Oops, try another one neko', 'lucky') or nil
 	 )
 	 
       elseif neko:find('^miao') then
+
+	 print('miao miao: ' .. message.message_id)
 
 	 local index = string.match(neko, 'miao(%d+)') or 1
 	 local rss = feedparser.parse(read_file('staymiao.xml'), miao_url)
@@ -298,35 +308,28 @@ function api.on_callback_query(callback_query)
 	 local res = api.send_photo(
 	    message.chat.id,
 	    img,
-	    title .. '\n' .. link
+	    title .. '\n' .. link,
+	    false,
+	    nil,
+	    generatemarkup('Just one more neko', 'miao' .. (index+1))
 	 )
 	 
-	 api.edit_message_text(
+	 return api.edit_message_reply_markup(
 	    message.chat.id,
 	    message.message_id,
-	    res and 'Want more?' or 'Oops, something wrong >_<',
 	    nil,
-	    true,
-	    api.inline_keyboard():row(
-	       api.row():callback_data_button(
-		  'Just one more neko',
-		  'neko:miao' .. (index+1)
-		):callback_data_button(
-		  'Nope',
-		  'neko:done'
-		)
-	    )
+	    not res and generatemarkup('Oops, try another one neko', 'miao'..(index+1)) or nil
 	 )
 
       elseif neko == 'done' then
 
-	 api.edit_message_text(
+	 return api.edit_message_reply_markup(
 	    message.chat.id,
 	    message.message_id,
-	    "Enjoy~"
+	    nil,
+	    nil
 	 )
 	 
-	 print('neko done')
       end
    end
 end
