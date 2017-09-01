@@ -72,7 +72,7 @@ function api.on_message(message)
 		state = 'NO_STATE'
 		 api.send_message(
 			message.chat.id,
-			utf8.char(0xF0,0x9F,0x93,0x8C)
+			utf8.char(0xF0,0x9F,0x93,0x85)
 		 )
      elseif message.text:match('done') then
 		state = 'NO_STATE'
@@ -208,7 +208,7 @@ function api.on_message(message)
 		      assert(false, "Countdown table cannot be jsonified")
 		   end
 
-		   countdown:flush()
+		   countdownfile:flush()
 		   
 		   print('desc :' .. thetable[#thetable].desc)
 		   api.send_message(
