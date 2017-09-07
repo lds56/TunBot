@@ -53,7 +53,7 @@ local mem = cjson.decode(mem_content)
 local state = "NO_STATE"
 local miao_url = 'http://staymiao.lofter.com/'
 
-local countdownfile = nil
+-- local countdownfile ="count
 -- assert(countdownfile, "Countdown file not exist")
 
 math.randomseed( os.time() )
@@ -70,11 +70,11 @@ function api.on_message(message)
 	 if message.text:match('ping')
 	 then
 		state = 'NO_STATE'
-		 api.send_message(
-			message.chat.id,
-			utf8.char(0xF0,0x9F,0x93,0x85)
-		 )
-     elseif message.text:match('done') then
+		api.send_message(
+		    message.chat.id,
+		    'pong'
+		)
+	 elseif message.text:match('done') then
 		state = 'NO_STATE'
 		api.send_message(
 		   message.chat.id,
@@ -137,9 +137,13 @@ function api.on_message(message)
 		   local date = os.time{year=math.floor(datenum / 10000), month=math.floor(datenum/100) % 100, day=datenum % 100, hour=0}
 		   local datedelta = os.difftime(date, os.time()) / (24 * 60 * 60)
 		   if datedelta >= 0 then
-		      return 'Event: ' .. cd.desc .. ', Date: ' .. cd.date .. ', Countdown: ' .. math.ceil(datedelta) .. ' days left'
+		      return utf8.escape('%x1F4CB') .. ' ' .. cd.desc .. '  ' ..
+			 utf8.escape('%x1F4C5') .. ' ' .. cd.date .. '  ' ..
+			 utf8.escape('%x23F3') .. ' ' .. math.ceil(datedelta) .. ' days left'
 		   else
-		      return 'Event: ' .. cd.desc .. ', Date: ' .. cd.date .. ', Countdown: ' .. math.ceil(-datedelta) .. ' days passed'
+		      return utf8.escape('%x1F4CB') .. ' ' .. cd.desc .. '  ' ..
+			 utf8.escape('%x1F4C5') .. ' ' .. cd.date .. '  ' ..
+			 utf8.escape('%x231B') .. ' ' .. math.ceil(-datedelta) .. ' days passed'
 		   end
 		end
 
@@ -202,13 +206,12 @@ function api.on_message(message)
 		   thetable[#thetable].date = message.text
 
 		   if not pcall(function()
-			 countdownfile = countdownfile or io.open('countdown.json', 'w')
-			 countdownfile:write(cjson.encode(countdowntable))
+			 write_file('countdown.json', cjson.encode(countdowntable))
 		   end) then
 		      assert(false, "Countdown table cannot be jsonified")
 		   end
 
-		   countdownfile:flush()
+--		   countdownfile:flush()
 		   
 		   print('desc :' .. thetable[#thetable].desc)
 		   api.send_message(
@@ -337,4 +340,4 @@ end
 print("Running...")
 api.run()
 
-countdownfile:close()
+-- countdownfile:close()
