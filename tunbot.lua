@@ -52,6 +52,7 @@ assert(mem_content, "No memory.json found")
 local mem = cjson.decode(mem_content)
 local state = "NO_STATE"
 local miao_url = 'http://staymiao.lofter.com/'
+local now_datenum = 0
 
 -- local countdownfile ="count
 -- assert(countdownfile, "Countdown file not exist")
@@ -333,6 +334,30 @@ function api.on_callback_query(callback_query)
 	    nil
 	 )
 	 
+      end
+   end
+end
+
+function api.on_run(run)
+   
+   if os.date('*t').min == 0 then
+      local now_time = os.date('*t')
+      local tmp_datenum = now_time.year * 10000 + now_time.month * 100 + now_time.day
+
+      if now_datenum < tmp_datenum then
+
+	 now_datenum = tmp_datenum
+      
+	 for user, cd in pairs(countdowntable) do
+	    for idx, info in ipairs(countdowntable[user]) do
+	       if tonumber(info.date) == now_datenum then
+		  api.send_message(
+		     user,
+		     "It's time now => " .. info.desc
+		  )
+	       end
+	    end
+	 end
       end
    end
 end
